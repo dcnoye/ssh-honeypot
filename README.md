@@ -11,4 +11,10 @@ I'll update the Readme  when I have time.
  * python-virtualenv
 
 ## Getting Started
+ 
+ * clone repo
+ * python3 -mpip install -r requirements.txt
+ * python3 honeypot &
+
+
 
