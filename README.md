@@ -1,5 +1,5 @@
 # ssh-honeypot
-Lightweight SSH Honeypot written in python
+Lightweight SSH Honeypot written in python with fail2ban
 
 Pull requests welcome.
 
