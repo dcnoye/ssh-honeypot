@@ -1,60 +1,58 @@
 #!/usr/bin/env python3
-""" 
-    SSH Honeypot Server that will ban all IP's via fail2ban
+"""
+SSH Honeypot Server that will ban all IP's via fail2ban
 
 """
 from binascii import hexlify
+import sys
 import os
 import re
-import socket
-import sys
-import threading
+from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
+from threading import Lock, Event, Thread
 from datetime import datetime
-import paramiko
+from paramiko import rsakey, ServerInterface, AUTH_FAILED, Transport
 
 ip_pattern = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
 BAN_CMD = "fail2ban-client set sshd banip "
-O_TIME = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-HOST_KEY = paramiko.rsakey.RSAKey.generate(2048)
+HOST_KEY = rsakey.RSAKey.generate(2048)
 
-O_IP = ""
 SSH_PORT = 22
 LOGFILE = '/var/log/honeypot.log'
-LOGFILE_LOCK = threading.Lock()
+LOGFILE_LOCK = Lock()
 
 
-class Server(paramiko.ServerInterface):
-    '''  We are failing every ssh login attempt and anyone that grab the banner,
-         Then logging everything to aggregate and later review '''
+class Server(ServerInterface):
+    '''
+    We fail and ban every ssh login attempt and any banner grab.
+    Then logging everything to aggregate and later review
+    '''
     def __init__(self):
-        self.event = threading.Event()
+        self.event = Event()
 
     def check_auth_password(self, username, password):
         LOGFILE_LOCK.acquire()
         try:
-            user_pass = '{0}:{1}'.format(username, password)
-            honeylog(user_pass)
+            honeylog('{0}:{1}'.format(username, password))
         finally:
             LOGFILE_LOCK.release()
-        return paramiko.AUTH_FAILED
+        return AUTH_FAILED
 
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            user_pass = '{0}:{1}'.format(username, hexlify(key.get_fingerprint()))
-            honeylog(user_pass)
+            honeylog('{0}:{1}'.format(username, hexlify(key.get_fingerprint())))
         finally:
             LOGFILE_LOCK.release()
-        return paramiko.AUTH_FAILED
+        return AUTH_FAILED
 
     def get_allowed_auths(self, username):
         return 'password,publickey'
 
 
-def honeyp(client):
+def honeypot(client):
     '''  Setup custom sshd server '''
     try:
-        transport = paramiko.Transport(client)
+        transport = Transport(client)
         transport.add_server_key(HOST_KEY)
         transport.local_version = 'SSH-2.0-OpenSSH_9.4'
         server = Server()
@@ -73,12 +71,13 @@ def ban(remoteip):
         os.system(BAN_CMD + result.group(0))
 
 
-def honeylog(user_pass):
-    '''  log time ip and user credentials  '''
+def honeylog(data):
+    '''  log time, ip or user credentials  '''
+    o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+    o_entry = '{0} {1} \n'.format(o_time, data)
     try:
-        new_entry = '{0} {1} {2} \n'.format(O_TIME, O_IP, user_pass)
         logf = open(LOGFILE, "a")
-        logf.write(new_entry)
+        logf.write(o_entry)
         logf.close()
     except Exception as e:
         print("ERROR: Log Handling", e)
@@ -87,20 +86,20 @@ def honeylog(user_pass):
 def main():
     '''  We are failing every attempt, and logging as we go '''
     try:
-        server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        server_socket.bind(('', SSH_PORT))
-        server_socket.listen(1)
+        sock_s = socket(AF_INET, SOCK_STREAM)
+        sock_s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
+        sock_s.bind(('', SSH_PORT))
+        sock_s.listen()
 
         while True:
             try:
-                cs, client_addr = server_socket.accept()
-                print(client_addr[0])
-                x = threading.Thread(target=honeyp, args=(cs,))
-                x.start()
-                global O_IP
-                O_IP = client_addr[0]
+                conn, client_addr = sock_s.accept()
+                x_thread = Thread(target=honeypot, args=(conn,))
+                x_thread.start()
+
                 ban(client_addr[0])
+                honeylog(client_addr[0])
+
             except Exception as e:
                 print("ERROR: Client handling", e)
 
