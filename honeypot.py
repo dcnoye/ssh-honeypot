@@ -15,12 +15,11 @@ from paramiko import rsakey, ServerInterface, AUTH_FAILED, Transport
 import config as CONFIG
 
 LOGFILE_LOCK = Lock()
+HOST_KEY = rsakey.RSAKey.generate(2048)
 
 
 class Server(ServerInterface):
-    '''
-    We fail and ban every ssh login attempt and any banner grab.
-    Then logging everything to aggregate and later review
+    ''' Customized paramiko to fail every attempt, then log.
     '''
     def __init__(self):
         self.event = Event()
@@ -49,8 +48,8 @@ def honeypot(client):
     '''  Setup custom sshd server '''
     try:
         transport = Transport(client)
-        transport.add_server_key(CONFIG.HOST_KEY)
-        transport.local_version = 'SSH-2.0-OpenSSH_9.4'
+        transport.add_server_key(HOST_KEY)
+        transport.local_version = CONFIG.HOST_VERSION
         server = Server()
         transport.start_server(server=server)
         channel = transport.accept(1)
@@ -90,7 +89,10 @@ def ipcheck(ipmaybe):
 
 
 def main():
-    '''  We are failing every attempt, and logging as we go '''
+    '''
+    We fail and ban every ssh login attempt and any banner grab.
+    Then logging everything to aggregate and later review
+    '''
     try:
         sock_s = socket(AF_INET, SOCK_STREAM)
         sock_s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -105,9 +107,11 @@ def main():
 
                 ban(client_addr[0])
                 honeylog(client_addr[0])
+                conn.close()
 
             except Exception as e:
                 print("ERROR: Client handling", e)
+                conn.close()
 
     except Exception as e:
         print("ERROR: Failed to create socket", e)
