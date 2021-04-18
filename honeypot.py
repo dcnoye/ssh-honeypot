@@ -83,15 +83,15 @@ def honeylog(data):
 
 def ipcheck(ipmaybe):
     ''' check if it's a valid ip4 address ''' #TODO: check for ipv6
-    x = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
-    return(x.search(remoteip))
-        
+    x_regex = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
+    return x_regex.search(ipmaybe)
 
 
 def main():
     '''
-    We fail and ban every ssh login attempt and any banner grab.
-    Then logging everything to aggregate and later review
+    We fail and ban every ssh login attempt and anyone banner grabbing.
+    Then logging everything to aggregate and later review.
+
     '''
     try:
         sock_s = socket(AF_INET, SOCK_STREAM)
