@@ -12,6 +12,7 @@ from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from threading import Lock, Event, Thread
 from datetime import datetime
 from paramiko import rsakey, ServerInterface, AUTH_FAILED, Transport
+import requests
 import config as CONFIG
 
 LOGFILE_LOCK = Lock()
@@ -59,6 +60,7 @@ def honeypot(client):
     except Exception as e:
         print("ERROR: Transport handling", e)
 
+
 def ban(remoteip):
     '''  send offending ip to system fail2ban '''
     try:
@@ -81,15 +83,24 @@ def honeylog(data):
     except Exception as e:
         print("ERROR: Log Handling", e)
 
+
 def ipcheck(ipmaybe):
-    ''' check if it's a valid ip4 address ''' #TODO: check for ipv6
+    ''' check if it's a valid ip4 address '''
+    # TODO: check for ipv6
     x_regex = re.compile(r'(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})')
     return x_regex.search(ipmaybe)
 
 
+def phonehome(data):
+    '''  Send data to dashboard API '''
+    o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+    payload = {'name': CONFIG.ID, 'date': o_time, 'data': data}
+    requests.post(CONFIG.API_URL, data=payload, headers=CONFIG.KEY)
+
+
 def main():
     '''
-    We fail and ban every ssh login attempt and anyone banner grabbing.
+    By default, we fail & ban every login attempt and any banner grabbing.
     Then logging everything to aggregate and later review.
 
     '''
@@ -104,10 +115,12 @@ def main():
                 conn, client_addr = sock_s.accept()
                 x_thread = Thread(target=honeypot, args=(conn,))
                 x_thread.start()
-
-                ban(client_addr[0])
-                honeylog(client_addr[0])
-                conn.close()
+                if CONFIG.BAN is True:
+                    ban(client_addr[0])
+                if CONFIG.LOG is True:
+                    honeylog(client_addr[0])
+                if CONFIG.API is True:
+                    phonehome(client_addr[0])
 
             except Exception as e:
                 print("ERROR: Client handling", e)
