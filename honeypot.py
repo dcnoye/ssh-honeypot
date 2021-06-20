@@ -9,7 +9,7 @@ import os
 import re
 import time
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
-from threading import Lock, Event, Thread
+from threading import Lock, Thread
 from datetime import datetime
 from paramiko import rsakey, ServerInterface, AUTH_FAILED, Transport
 import requests
@@ -25,11 +25,7 @@ class Server(ServerInterface):
     def __init__(self, ip, port):
         self.ip = ip
         self.port = port
-#        self.event = Event()
         ServerInterface.__init__(self)
-
-#    def __init__(self):
-#        self.event = Event()
 
     def check_auth_password(self, username, password):
         LOGFILE_LOCK.acquire()
@@ -42,7 +38,7 @@ class Server(ServerInterface):
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint(),self.ip)))
+            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint()),self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -51,8 +47,11 @@ class Server(ServerInterface):
         return 'password,publickey'
 
 
-def honeypot(client,ip,port):
+def honeypot(client, ip, port):
     '''  Setup custom sshd server '''
+    print(ip)
+    print(port)
+    print(client)
     try:
         transport = Transport(client)
         transport.add_server_key(HOST_KEY)
