@@ -30,7 +30,7 @@ class Server(ServerInterface):
     def check_auth_password(self, username, password):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1} {2}'.format(username, password, self.ip))
+            honeylog('{2} {0}:{1}'.format(username, password, self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -38,7 +38,7 @@ class Server(ServerInterface):
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint()), self.ip))
+            honeylog('{2} {0}:{1}'.format(username, hexlify(key.get_fingerprint()), self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -120,6 +120,8 @@ def main():
                 x_thread.start()
                 if CONFIG.BAN is True:
                     ban(client_addr[0])
+                if CONFIG.LOG is True:
+                    honeylog(client_addr[0])
                 if CONFIG.API is True:
                     phonehome(client_addr[0])
 
