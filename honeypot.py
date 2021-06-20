@@ -22,13 +22,19 @@ HOST_KEY = rsakey.RSAKey.generate(2048)
 class Server(ServerInterface):
     ''' Customized paramiko to fail every attempt, then log.
     '''
-    def __init__(self):
-        self.event = Event()
+    def __init__(self, ip, port):
+        self.ip = ip
+        self.port = port
+#        self.event = Event()
+        ServerInterface.__init__(self)
+
+#    def __init__(self):
+#        self.event = Event()
 
     def check_auth_password(self, username, password):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1}'.format(username, password))
+            honeylog('{0}:{1} {2}'.format(username, password, self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -36,7 +42,7 @@ class Server(ServerInterface):
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1}'.format(username, hexlify(key.get_fingerprint())))
+            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint(),self.ip)))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -45,13 +51,13 @@ class Server(ServerInterface):
         return 'password,publickey'
 
 
-def honeypot(client):
+def honeypot(client,ip,port):
     '''  Setup custom sshd server '''
     try:
         transport = Transport(client)
         transport.add_server_key(HOST_KEY)
         transport.local_version = CONFIG.HOST_VERSION
-        server = Server()
+        server = Server(ip,port)
         transport.start_server(server=server)
         channel = transport.accept(1)
 
@@ -104,6 +110,7 @@ def main():
     Then logging everything to aggregate and later review.
 
     '''
+    print("Starting honeypot on port ",CONFIG.SSH_PORT)
     try:
         sock_s = socket(AF_INET, SOCK_STREAM)
         sock_s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
@@ -113,12 +120,10 @@ def main():
         while True:
             try:
                 conn, client_addr = sock_s.accept()
-                x_thread = Thread(target=honeypot, args=(conn,))
+                x_thread = Thread(target=honeypot, args=(conn,client_addr[0],client_addr[1]))
                 x_thread.start()
                 if CONFIG.BAN is True:
                     ban(client_addr[0])
-                if CONFIG.LOG is True:
-                    honeylog(client_addr[0])
                 if CONFIG.API is True:
                     phonehome(client_addr[0])
 
