@@ -38,7 +38,7 @@ class Server(ServerInterface):
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint()),self.ip))
+            honeylog('{0}:{1} {2}'.format(username, hexlify(key.get_fingerprint()), self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
@@ -49,9 +49,6 @@ class Server(ServerInterface):
 
 def honeypot(client, ip, port):
     '''  Setup custom sshd server '''
-    print(ip)
-    print(port)
-    print(client)
     try:
         transport = Transport(client)
         transport.add_server_key(HOST_KEY)
@@ -119,7 +116,7 @@ def main():
         while True:
             try:
                 conn, client_addr = sock_s.accept()
-                x_thread = Thread(target=honeypot, args=(conn,client_addr[0],client_addr[1]))
+                x_thread = Thread(target=honeypot, args=(conn, client_addr[0], client_addr[1]))
                 x_thread.start()
                 if CONFIG.BAN is True:
                     ban(client_addr[0])
