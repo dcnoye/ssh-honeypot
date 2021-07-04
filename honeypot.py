@@ -53,7 +53,7 @@ def honeypot(client, ip, port):
         transport = Transport(client)
         transport.add_server_key(HOST_KEY)
         transport.local_version = CONFIG.HOST_VERSION
-        server = Server(ip,port)
+        server = Server(ip, port)
         transport.start_server(server=server)
         channel = transport.accept(1)
 
@@ -76,14 +76,15 @@ def ban(remoteip):
 
 def honeylog(data):
     '''  log time, ip or user credentials  '''
-    o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-    o_entry = '{0} {1} \n'.format(o_time, data)
-    try:
-        logf = open(CONFIG.LOGFILE, "a")
-        logf.write(o_entry)
-        logf.close()
-    except Exception as e:
-        print("ERROR: Log Handling", e)
+    if CONFIG.LOG is True:
+        o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
+        o_entry = '{0} {1} \n'.format(o_time, data)
+        try:
+            logf = open(CONFIG.LOGFILE, "a")
+            logf.write(o_entry)
+            logf.close()
+        except Exception as e:
+            print("ERROR: Log Handling", e)
 
 
 def ipcheck(ipmaybe):
@@ -120,8 +121,6 @@ def main():
                 x_thread.start()
                 if CONFIG.BAN is True:
                     ban(client_addr[0])
-                if CONFIG.LOG is True:
-                    honeylog(client_addr[0])
                 if CONFIG.API is True:
                     phonehome(client_addr[0])
 
