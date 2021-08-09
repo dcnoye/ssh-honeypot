@@ -3,6 +3,9 @@
 SSH Honeypot Server that will ban all IP's via fail2ban
 
 """
+
+from paramiko.py3compat import b, u, encodebytes, decodebytes
+
 from binascii import hexlify
 import sys
 import os
@@ -38,7 +41,9 @@ class Server(ServerInterface):
     def check_auth_publickey(self, username, key):
         LOGFILE_LOCK.acquire()
         try:
-            honeylog('{2} {0}:{1}'.format(username, hexlify(key.get_fingerprint()), self.ip))
+            salt = os.urandom(sha1().digest_size)
+            hostkey = '|1|%s|%s' % (u(encodebytes(salt)), u(encodebytes(hmac)))
+            honeylog('{2} {0}:{1}'.format(username, key.get_fingerprint(), self.ip))
         finally:
             LOGFILE_LOCK.release()
         return AUTH_FAILED
