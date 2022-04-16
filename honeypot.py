@@ -117,7 +117,7 @@ def main():
         sock_s = socket(AF_INET, SOCK_STREAM)
         sock_s.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         sock_s.bind(('', CONFIG.SSH_PORT))
-        sock_s.listen()
+        sock_s.listen(1)
 
         while True:
             try:
