@@ -11,15 +11,21 @@ import sys
 import os
 import re
 import time
+import logging
+import requests
 from socket import socket, AF_INET, SOCK_STREAM, SOL_SOCKET, SO_REUSEADDR
 from threading import Lock, Thread
 from datetime import datetime
 from paramiko import rsakey, ServerInterface, AUTH_FAILED, Transport
-import requests
 import config as CONFIG
 
 LOGFILE_LOCK = Lock()
 HOST_KEY = rsakey.RSAKey.generate(2048)
+
+# Setup logging
+logging.basicConfig(filename=CONFIG.LOGFILE, level=logging.INFO,
+                    format='%(asctime)s - %(message)s', datefmt='%Y-%m-%dT%H:%M:%S.%f')
+
 
 
 class Server(ServerInterface):
@@ -31,21 +37,13 @@ class Server(ServerInterface):
         ServerInterface.__init__(self)
 
     def check_auth_password(self, username, password):
-        LOGFILE_LOCK.acquire()
-        try:
-            honeylog('{2} {0}:{1}'.format(username, password, self.ip))
-        finally:
-            LOGFILE_LOCK.release()
+        with LOGFILE_LOCK:
+            honeylog(f'{self.ip} {username}:{password}')
         return AUTH_FAILED
 
     def check_auth_publickey(self, username, key):
-        LOGFILE_LOCK.acquire()
-        try:
-            salt = os.urandom(sha1().digest_size)
-            hostkey = '|1|%s|%s' % (u(encodebytes(salt)), u(encodebytes(hmac)))
-            honeylog('{2} {0}:{1}'.format(username, key.get_fingerprint(), self.ip))
-        finally:
-            LOGFILE_LOCK.release()
+        with LOGFILE_LOCK:
+            honeylog(f'{self.ip} {username}:{key.get_fingerprint()}')
         return AUTH_FAILED
 
     def get_allowed_auths(self, username):
@@ -65,7 +63,7 @@ def honeypot(client, ip, port):
         if channel is not None:
             channel.close()
     except Exception as e:
-        print("ERROR: Transport handling", e)
+        logging.error("ERROR: Transport handling - %s", str(e))
 
 
 def ban(remoteip):
@@ -76,20 +74,13 @@ def ban(remoteip):
             time.sleep(1)
             os.system(CONFIG.BAN_CMD + result.group(0))
     except Exception as e:
-        print("ERROR: Ban  handling", e)
+        logging.error("ERROR: Ban handling - %s", str(e))
 
 
 def honeylog(data):
-    '''  log time, ip or user credentials  '''
-    if CONFIG.LOG is True:
-        o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
-        o_entry = '{0} {1} \n'.format(o_time, data)
-        try:
-            logf = open(CONFIG.LOGFILE, "a")
-            logf.write(o_entry)
-            logf.close()
-        except Exception as e:
-            print("ERROR: Log Handling", e)
+    """Log time, ip or user credentials"""
+    if CONFIG.LOG:
+        logging.info(data)
 
 
 def ipcheck(ipmaybe):
@@ -101,6 +92,7 @@ def ipcheck(ipmaybe):
 
 def phonehome(data):
     '''  Send data to dashboard API '''
+    # TODO: cleanup
     o_time = str(datetime.now().strftime('%Y-%m-%dT%H:%M:%S.%f'))
     payload = {'name': CONFIG.ID, 'date': o_time, 'data': data}
     requests.post(CONFIG.API_URL, data=payload, headers=CONFIG.KEY)
@@ -130,11 +122,11 @@ def main():
                     phonehome(client_addr[0])
 
             except Exception as e:
-                print("ERROR: Client handling", e)
+                logging.error("ERROR: Client handling - %s", str(e))
                 conn.close()
 
     except Exception as e:
-        print("ERROR: Failed to create socket", e)
+        logging.error("ERROR: Failed to create socket - %s", str(e))
         sys.exit(1)
 
 
